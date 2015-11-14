@@ -19,13 +19,28 @@ public:
 
   ~Randmat() {}
   Matrix unirand(int n, int m) {
+    if (n < 1 || m < 1) throw Exception("Matrix size doesn't make sense!");
     Matrix c(n, m);
     for (int i = 1; i <= n; i++)
       for (int j = 1; j <= m; j++) {
-        c.get(i, j) = uni();
+        c(i, j) = uni();
       }
     return c;
   }
 
+  Matrix unirand(int n) {
+    if (n < 1) throw Exception("Matrix size doesn't make sense!");
+    Matrix c(n);
+    for (int i = 1; i <= n; i++)
+      for (int j = 1; j <= n; j++) {
+        c(i, j) = uni();
+      }
+    return c;
+  }
+
+  Matrix uniposdef(int n) {
+    Matrix x = unirand(n);
+    return x.transpose() * x;
+  }
 };
 #endif

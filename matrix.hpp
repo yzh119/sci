@@ -2,11 +2,14 @@
 #define MATRIX
 #include <fstream>
 #include "exception.hpp"
+#include "complex.hpp"
 #include <iostream>
 #include <iomanip>
 #include <utility>
+#include <vector>
 #include <cmath>
 #include <algorithm>
+#include <cstdlib>
 
 const double eps = 1e-9;
 
@@ -14,6 +17,26 @@ class Matrix{
 private:
 	double **p;
 	int n, m;
+
+	inline double sqr(double t) const{
+		return t * t;
+	}
+
+	inline double sgn(double t) const{
+		return t > eps ? 1.: (t < eps ? -1.: 0.);
+	}
+
+	void caleig(Matrix& H, std::vector<comp>& eig) {
+		if ((int)eig.size() != n) throw Exception("Initialization error!");
+		for (int i = 1; i <= n; i++) {
+			if (i == n) {eig[n - 1] = (comp)H(i, i); break;}
+			if (fabs(H(i + 1, i)) < eps) {eig[i - 1] = (comp)H(i, i); continue;}
+			std::pair <comp, comp> eigpair = caleig22(H(i, i), H(i, i + 1), H(i + 1, i), H(i + 1, i + 1));
+			eig[i - 1] = eigpair.first;
+			eig[i++] = eigpair.second;
+		}
+	}
+
 public:
 	Matrix(int N, int M): n(N), m(M) {
 		if (N <= 0 || M <= 0) throw ("Out of Range!");
@@ -63,26 +86,27 @@ public:
 		return *this;
 	}
 
-	double &get(int i, int j) {
+	inline double& operator ()(int i, int j) {
 		if (i > n || i < 1 || j > m || j < 1) throw Exception("Out of Range!");
 		return p[i - 1][j - 1];
 	}
 
-	Matrix row(int i) {
+	inline Matrix operator ()(int i) {
 		if (i < 1 || i > n) throw Exception("Out of Range!");
 		Matrix c(1, m);
 		for (int j = 0; j < m; j++) c.p[0][j] = p[i - 1][j];
 		return c;
 	}
 
-	Matrix col(int j) {
+	inline Matrix operator ()(char star, int j) {
+		if (star != '*') throw Exception("star must be a *!");
 		if (j < 1 || j > m) throw Exception("Out of Range!");
 		Matrix c(n, 1);
 		for (int i = 0; i < n; i++) c.p[i][0] = p[i][j - 1];
 		return c;
 	}
 
-	Matrix sub(int i1, int j1, int i2, int j2) {
+	Matrix sub(int i1, int j1, int i2, int j2) const{
 		if (i2 < i1 || j2 < j1 || i1 < 1 || i2 > n || j1 < 1 || j2 > m) throw Exception("Out of Range!");
 		Matrix c(i2 - i1 + 1, j2 - j1 + 1);
 		for (int i = 0; i < i2 - i1 + 1; i++)
@@ -147,7 +171,7 @@ public:
 		return c;
 	}
 
-	Matrix generalizedInv() {
+	Matrix pseudoinv() {
 		int r = rank();
 		Matrix AT = transpose();
 		if (r == n) return AT * ((*this) * AT).inv();
@@ -185,35 +209,145 @@ public:
 		return c;
 	}
 
-	std::pair <Matrix, Matrix> LU() {
+// LU returns LU decomposition of A, in which L * U = A;
+	std::pair <Matrix, Matrix> LU() const{
+		if (n != m) throw Exception("Matrix is not a square!");
+		Matrix L(n, 'I'), U(*this);
+		for (int i = 1; i <= n; i++) {
+			for (int j = i + 1; j <= n; j++) {
+				double coef = -U(j, i) / U(i, i);
+				L(j, i) = -coef;
+				for (int k = i; k <= n; k++)
+					U(j, k) += coef * U(i, k);
+			}
+		}
+		return std::make_pair(L, U);
+	}
+
+// LUP returns make_pair(P, make_pair(L, U)), in which P * A = L * U;
+	std::pair <Matrix, std::pair<Matrix, Matrix> > LUP() const{
+		if (n != m) throw Exception("Matrix is not a square!");
+		Matrix L(n, 'I'), U(*this), P(n, 'I');
+
+
+
+		return std::make_pair(P, std::make_pair(L, U));
+	}
+
+/* QR returns QR decomposition of A,
+ * make_pair(Q, R), in which Q * R = A;
+ */
+	std::pair <Matrix, Matrix> QR() const{
+		if (n < m) throw Exception("n should be greater than m!");
+		Matrix Q(n, 'I'), R(*this);
+		for (int k = 1; k <= n; k++) {
+			double alpha = -sgn(R(k, k)) * (R.sub(k, k, m, k).norm2());
+			Matrix v(m, 1); v(k, 1) -= alpha;
+			for (int j = k; j <= m; j++) v(j, 1) += R(j, k);
+			double beta = (v.transpose() * v)(1, 1);
+			R -= 2. * v * (v.transpose() * R)/ beta;
+			Q -= 2. * (Q * v) * v.transpose()/ beta;
+		}
+		return std::make_pair(Q, R);
+	}
+
+/* SVD returns singular value decomposition of A,
+ * make_pair(Sigma, make_pair(U, V)), in which U * Sigma * V' = A;
+ */
+	std::pair <Matrix, std::pair<Matrix, Matrix> > SVD() const{
 
 
 
 	}
 
-	std::pair <Matrix, std::pair<Matrix, Matrix> > LUP() {
+// arnoldi returns make_pair(Q, H)
+	std::pair<Matrix, Matrix> arnoldi() {
+		if (n != m) throw Exception("Matrix size doesn't match!");
+		Matrix Q(n, n), H(n, n);
+		Matrix x(n, 1), u(n, 1);
+		for (int i = 1; i <= n; i++) x(i, 1) = 1. * rand() / RAND_MAX;
+		double norm  = x.norm2();
+		for (int i = 1; i <= n; i++) Q(i, 1) = x(i, 1) / norm;
 
-
-
+		for (int k = 1; k <= n; k++) {
+			u = (*this) * Q('*', k);
+    	for (int j = 1; j <= k; j++) {
+				H(j, k) = (Q('*', j).transpose() * u)(1, 1);
+				u -= H(j, k) * Q('*', j);
+			}
+			if (k != n) {
+				H(k + 1, k) = u.norm2();
+				for (int j = 1; j <= n; j++) {
+					Q(j, k + 1) = u(j, 1) / H(k + 1, k);
+				}
+			}
+		}
+		return std::make_pair(Q, H);
 	}
 
-	std::pair <Matrix, Matrix> QR() {
+	std::pair<Matrix, Matrix> lanczos() {
+		if (n != m) throw Exception("Matrix size doesn't match!");
+		Matrix Q(n, n), H(n, n);
+		Matrix x(n, 1), u(n, 1);
+		for (int i = 1; i <= n; i++) x(i, 1) = 1. * rand() / RAND_MAX;
+		double norm = x.norm2();
+		for (int i = 1; i <= n; i++) Q(i, 1) = x(i, 1) / norm;
 
-
-
+		for (int k = 1; k <= n; k++) {
+			u = (*this) * Q('*', k);
+			H(k, k) = (Q('*', k).transpose() * u)(1, 1);
+			if (k > 1) u -= (H(k - 1, k) * Q('*', k - 1) + H(k, k) * Q('*', k));
+				else u -= H(k, k) * Q('*', k);
+			if (k != n) {
+				H(k + 1, k) = H(k, k + 1) = u.norm2();
+				for (int j = 1; j <= n; j++) {
+					Q(j, k + 1) = u(j, 1) / H(k + 1, k);
+				}
+			}
+		}
+		return std::make_pair(Q, H);
 	}
 
-	std::pair <Matrix, std::pair<Matrix, Matrix> > QRP() {
+	std::vector<comp> eigenvalue() {
+		if (n != m) throw Exception("Matrix size doesn't match!");
+		std::pair <Matrix, Matrix> QH = arnoldi();
+		Matrix Q1(QH.first), H(QH.second);
+		std::vector <double> s, c;
+		std::vector <comp> Eig(n), Eig1(n);
+		caleig(H, Eig);
 
+		while (1) {
+			double err = 0;
+			for (int i = 0; i < n; i++) {
+				if ((Eig[i] - Eig1[i]).modulo() > err) err = (Eig[i] - Eig1[i]).modulo();
+			}
+			if (err < eps) break;
+			s.clear(); c.clear();
 
+			for (int i = 2; i <= n; i++) {
+					double r = sqrt(H(i, i - 1) * H(i, i - 1) + H(i - 1, i - 1) * H(i - 1, i - 1));
+					c.push_back(H(i - 1, i - 1) / r);
+					s.push_back(H(i, i - 1) / r);
+					for (int j = i - 1; j <= n; j++) {
+						double hi = H(i, j), hi_1 = H(i - 1, j);
+						H(i, j) = -s.back() * hi_1 + c.back() * hi;
+						H(i - 1, j) = c.back() * hi_1 + s.back() * hi;
+					}
+			}
 
-	}
+			for (int j = 2; j <= n; j++) {
+					for (int i = 1; i <= n; i++) {
+						double hj = H(i, j), hj_1 = H(i, j - 1);
+						H(i, j) = -s[j - 2] * hj_1 + c[j - 2] * hj;
+						H(i, j - 1) = c[j - 2] * hj_1 + s[j - 2] * hj;
+					}
+			}
 
-// SVD returns make_pair(Sigma, make_pair(U, V)), in which U * Sigma * V' = A;
-	std::pair <Matrix, std::pair<Matrix, Matrix> > SVD() {
+			Eig1 = Eig;
+			caleig(H, Eig);
+		}
 
-
-
+		return Eig;
 	}
 
 	inline std::pair <int, int> sz() const {
@@ -347,6 +481,9 @@ Matrix operator ^(Matrix a, int m) {
 	return ans;
 }
 
+/* If A is nonsingular, solve A * x = b;
+ * else solve A * x ~= b, in which x has the minimum 2-norm;
+ */
 Matrix operator /(Matrix a, Matrix b) {
 	if (a.n != b.n) throw Exception("Matrix size doesn't match!");
 	if (b.m != 1) throw Exception("Doesn't make sense!");
