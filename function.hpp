@@ -3,15 +3,37 @@
 #include "matrix.hpp"
 #include <cmath>
 
-class Function{
+class Function {
+public:
+  double eps;
+  Function() {eps = 1e-8;}
+  Function(const Function &b) {
+    eps = b.eps;
+  }
+
+  Function& operator = (const Function &b) {
+    if (&b == this) return *this;
+    eps = b.eps;
+    return *this;
+  }
+
+  inline void modifyprecision(double Neps) {
+    eps = Neps;
+  }
+  virtual inline int numofArguments() const {}
+  virtual inline double eval(const Matrix&) {}
+};
+
+class funx: public Function{
 private:
   double (* f) (const Matrix &x);
   int n;
-  double eps;
 public:
-  Function(double (* fun)(const Matrix &x), int N): f(fun), n(N) {
-    eps = 1e-8;
-  }
+  double eps;
+
+  funx(double (* fun)(const Matrix &x), int N): f(fun), n(N) {}
+
+  ~funx() {}
 
   inline int numofArguments() const{
     return n;
@@ -21,13 +43,12 @@ public:
     return f(x);
   }
 
-  Function(const Function &b): eps(b.eps), f(b.f), n(b.n){}
+  funx(const funx &b): f(b.f), n(b.n){}
 
-  Function& operator = (const Function &b) {
+  funx& operator = (const funx &b) {
     if (this == (&b)) return *this;
     n = b.n;
     f = b.f;
-    eps = b.eps;
     return *this;
   }
 
@@ -75,11 +96,28 @@ public:
     return c;
   }
 
-  void modifyprecision(double Neps) {
-    eps = Neps;
-  }
-
-  ~Function() {}
 };
 
+class fun1:public Function{
+private:
+  double (* f) (double x);
+public:
+  fun1() {f = NULL;}
+  fun1(double (* fun)(double )): f(fun) {}
+  ~fun1() {}
+  inline int numofArguments() {return 1;}
+
+  virtual inline double eval(double x) const{
+    if (f == NULL) return 0.;
+    return f(x);
+  }
+
+  inline double eval(Matrix& M) const{
+    return eval(M(1, 1));
+  }
+
+  inline double derivative(double x) const{
+    return (eval(x + eps) - eval(x - eps)) / (2. * eps);
+  }
+};
 #endif

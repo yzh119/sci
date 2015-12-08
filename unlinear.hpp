@@ -6,10 +6,10 @@
 
 class Solver{
 private:
-  std::vector <Function> fs;
+  std::vector <funx> fs;
   int n;
 public:
-  Solver(const std::vector <Function>& func): fs(func) {
+  Solver(const std::vector <funx>& func): fs(func) {
     if (func.empty()) throw Exception("There is no function here!");
     n = fs[0].numofArguments();
   }

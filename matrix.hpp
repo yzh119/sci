@@ -315,8 +315,9 @@ public:
 		std::vector <double> s, c;
 		std::vector <comp> Eig(n), Eig1(n);
 		caleig(H, Eig);
-
+		int cnt = 0;
 		while (1) {
+			++cnt;
 			double err = 0;
 			for (int i = 0; i < n; i++) {
 				if ((Eig[i] - Eig1[i]).modulo() > err) err = (Eig[i] - Eig1[i]).modulo();
@@ -346,7 +347,7 @@ public:
 			Eig1 = Eig;
 			caleig(H, Eig);
 		}
-
+		std::cout << cnt << std::endl;
 		return Eig;
 	}
 
@@ -487,37 +488,28 @@ Matrix operator ^(Matrix a, int m) {
 Matrix operator /(Matrix a, Matrix b) {
 	if (a.n != b.n) throw Exception("Matrix size doesn't match!");
 	if (b.m != 1) throw Exception("Doesn't make sense!");
-	if (a.n < a.m) throw Exception("Condition is not enough!");
+	if (a.n != a.m) throw Exception("Condition is not enough or too much!");
 	Matrix c(a.n, 1);
-	if (a.n == a.m) {
-		for (int i = 0; i < a.n; i++) {
-			int cmp = i;
-			for (int j = i + 1; j < a.n; j++)
-				if (a.p[j][i] > a.p[cmp][i]) cmp = j;
-			std::swap(b.p[i][0], b.p[cmp][0]);
+	for (int i = 0; i < a.n; i++) {
+		int cmp = i;
+		for (int j = i + 1; j < a.n; j++)
+			if (fabs(a.p[j][i]) > fabs(a.p[cmp][i])) cmp = j;
+		std::swap(b.p[i][0], b.p[cmp][0]);
+		for (int k = i; k < a.m; k++) {
+			std::swap(a.p[i][k], a.p[cmp][k]);
+		}
+		if (fabs(a.p[i][i]) < eps) throw("Matrix is not full rank");
+		for (int j = 0; j < a.n; j++) {
+			if (j == i) continue;
+			double coef = -a.p[j][i] / a.p[i][i];
 			for (int k = i; k < a.m; k++) {
-				std::swap(a.p[i][k], a.p[cmp][k]);
+				a.p[j][k] += coef * a.p[i][k];
 			}
-			if (fabs(a.p[i][i]) < eps) throw("Matrix is not full rank");
-			for (int j = 0; j < a.n; j++) {
-				if (j == i) continue;
-				double coef = -a.p[j][i] / a.p[i][i];
-				for (int k = i; k < a.m; k++) {
-					a.p[j][k] += coef * a.p[i][k];
-				}
-				b.p[j][0] += coef * b.p[i][0];
-			}
+			b.p[j][0] += coef * b.p[i][0];
 		}
-		for (int i = 0; i < a.n; i++) {
-			c.p[i][0] = b.p[i][0] / a.p[i][i];
-		}
-	} else {
-		for (int i = 0; i < a.m; i++) {
-
-
-
-
-		}
+	}
+	for (int i = 0; i < a.n; i++) {
+		c.p[i][0] = b.p[i][0] / a.p[i][i];
 	}
 	return c;
 }
@@ -571,7 +563,7 @@ Matrix& operator /=(Matrix& a, const Matrix& b) {
 std::ostream& operator << (std::ostream& out, const Matrix& b) {
 	for (int i = 0; i < b.n; i++) {
 		for (int j = 0; j < b.m; j++)
-			out << std::setw(10) << std::fixed << std::setprecision(15) << b.p[i][j] << " ";
+			out << std::setw(10) << std::fixed << std::setprecision(5) << b.p[i][j] << " ";
 		out << std::endl;
 	}
 	return out;
