@@ -20,8 +20,8 @@ public:
   inline void modifyprecision(double Neps) {
     eps = Neps;
   }
-  virtual inline int numofArguments() const {}
-  virtual inline double eval(const Matrix&) {}
+  virtual inline int numofArguments() const { return 0; }
+  virtual inline double eval(const Matrix&) { return 0.; }
 };
 
 class funx: public Function{
@@ -55,9 +55,9 @@ public:
   double partial(Matrix x, int k) const{
     double f1, f2;
     if (k < 1 || k > n) throw Exception("Augument out of range!");
-    x(1, k) += eps;
+    x[k] += eps;
     f1 = f(x);
-    x(1, k) -= 2. * eps;
+    x[k] -= 2. * eps;
     f2 = f(x);
     return (f1 - f2) / (2. * eps);
   }
@@ -65,14 +65,14 @@ public:
   double secondpartial(Matrix x, int k1, int k2) const{
     double eps1 = sqrt(eps);
     double f11, f12, f21, f22;
-    x(1, k1) -= eps1;
-    x(1, k2) -= eps1;
+    x[k1] -= eps1;
+    x[k2] -= eps1;
     f11 = f(x);
-    x(1, k2) += 2. * eps1;
+    x[k2] += 2. * eps1;
     f12 = f(x);
-    x(1, k1) += 2. * eps1;
+    x[k1] += 2. * eps1;
     f22 = f(x);
-    x(1, k2) -= 2. * eps1;
+    x[k2] -= 2. * eps1;
     f21 = f(x);
     return ((f22 - f12) / (2. * eps1) - (f21 - f11) / (2. * eps1)) / (2. * eps1);
   }
@@ -89,9 +89,9 @@ public:
   }
 
   Matrix gradient(Matrix x) {
-    Matrix c(1, n);
+    Matrix c(n, 1);
     for (int i = 1; i <= n; i++) {
-      c(1, i) = partial(x, i);
+      c[i] = partial(x, i);
     }
     return c;
   }
@@ -118,6 +118,11 @@ public:
 
   inline double derivative(double x) const{
     return (eval(x + eps) - eval(x - eps)) / (2. * eps);
+  }
+
+  inline double twoorder(double x) const {
+	  double eps1 = 1e-4;
+	  return (eval(x + eps1) + eval(x - eps1) - 2. * eval(x)) / (eps1 * eps1);
   }
 };
 #endif

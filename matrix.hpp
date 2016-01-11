@@ -10,7 +10,7 @@
 #include <cmath>
 #include <algorithm>
 #include <cstdlib>
-
+using namespace std;
 const double eps = 1e-9;
 
 class Matrix{
@@ -171,24 +171,18 @@ public:
 		return c;
 	}
 
-	Matrix pseudoinv() {
-		int r = rank();
-		Matrix AT = transpose();
-		if (r == n) return AT * ((*this) * AT).inv();
-		if (r == m) return (AT * (*this)).inv() * AT;
-		std::pair <Matrix, std::pair<Matrix, Matrix> > SUV = SVD();
-		Matrix S1(SUV.first.transpose());
-		for (int i = 0; i < std::min(S1.n, S1.m); i++) {
-			if (fabs(S1.p[i][i]) > eps)
-				S1.p[i][i] = 1. / S1.p[i][i];
-		}
-		return SUV.second.second * S1 * SUV.second.first.transpose();
-	}
-
 	Matrix inv() {
 		if (n != m) throw("No inverse exists");
 		Matrix A(*this), c(n, 'I');
 		for (int i = 0; i < n; i++) {
+			double cmp = fabs(A.p[i][i]); int t = i;
+			for (int j = i; j < n; j++) {
+				if (cmp < fabs(A.p[j][i])) cmp = fabs(A.p[t = j][i]);
+			}
+			for (int k = 0; k < n; k++) {
+				std::swap(A.p[i][k], A.p[t][k]);
+				std::swap(c.p[k][i], c.p[k][t]);
+			}
 			if (fabs(A.p[i][i]) < eps) throw("No inverse exists");
 			double coef = 1. / A.p[i][i];
 			for (int j = i; j < n; j++)
@@ -359,11 +353,6 @@ public:
 		return n == m;
 	}
 
-	inline double elem(int x) const {
-		if (x < 1 || x > m) throw Exception("Out of Range!");
-		return p[0][x - 1];
-	}
-
 	inline double norm1() {
 		double ret = 0.;
 		if (n == 1) {
@@ -423,11 +412,18 @@ public:
 		return r + 1;
 	}
 
+	double & operator [](int index);
+
 	~Matrix() {
 		for (int i = 0; i < n; i++)	delete [] p[i];
 		delete [] p;
 	}
 };
+
+double & Matrix::operator [](int index){
+	if (index < 1 || index > n) throw Exception("Index exceed!");
+	return p[index - 1][0];
+}
 
 Matrix operator +(const Matrix& a, const Matrix& b) {
 	if (a.n != b.n || a.m != b.m) throw Exception("Matrix size doesn't match!");
